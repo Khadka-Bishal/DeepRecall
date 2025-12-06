@@ -1,0 +1,50 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment variables - NEVER commit these!
+.env
+.env.*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Backend - Large/Generated files
+backend/db_chroma/
+backend/venv/
+backend/wandb/
+backend/__pycache__/
+backend/*.pyc
+backend/datasets/
+backend/evaluation/
+backend/benchmarks/
+*.sqlite3
+*.db
+
+# Root level large files (duplicates sometimes created)
+db_chroma/
+wandb/
+venv/
+__pycache__/
+
+# Temp files
+temp_*
+*.tmp
