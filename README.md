@@ -35,32 +35,6 @@ DeepRecall implements several production-level features that go beyond basic imp
 - Vite
 - WebSocket
 
-## 🚀 Quick Start
-
-```bash
-# Clone repository
-git clone https://github.com/Khadka-Bishal/DeepRecall.git
-cd DeepRecall
-
-# Setup Python environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r backend/requirements.txt
-
-# Set environment variables
-export OPENAI_API_KEY=your_key_here
-export UNSTRUCTURED_API_KEY=your_key_here
-
-# Run backend
-cd backend
-uvicorn server:app --reload --port 8000
-
-# In separate terminal, run frontend
-npm install
-npm run dev
-```
-
-Visit `http://localhost:5173` to use the application.
 
 ## 📡 API Reference
 
@@ -72,15 +46,6 @@ Content-Type: multipart/form-data
 Body: PDF file
 
 Response: { chunks_created, collection_name, status }
-```
-
-**Chat (Synchronous)**
-
-```
-POST /chat
-Body: { query, collection_name }
-
-Response: { answer, chunks, queries }
 ```
 
 **Chat (Streaming)**
