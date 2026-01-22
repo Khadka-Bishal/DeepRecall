@@ -1,18 +1,15 @@
 # DeepRecall
 
-DeepRecall is an advanced Retrieval-Augmented Generation (RAG) system that enables intelligent question-answering over PDF documents. Built with production-grade architecture, it combines hybrid search algorithms, streaming responses, and multi-tier caching to deliver fast, accurate, and contextually-aware answers.
+DeepRecall is a Retrieval-Augmented Generation (RAG) system for answering questions over PDF documents. It focuses on accurate retrieval, fast responses, and clear source attribution.
 
-## 🆕 What Makes This Different
+## Highlights
 
-DeepRecall implements several production-level features that go beyond basic implementations:
-
-- **Hybrid Retrieval with RRF Fusion**: Combines BM25 lexical search and vector similarity using Reciprocal Rank Fusion algorithm and Cross Encoder.
-- **Multi-Query Expansion**: LLM generates 3 query variations per request to overcome vocabulary mismatch, improving recall by capturing different phrasings
-- **Two-Tier Caching System**: Separate retrieval and answer caches with LRU eviction + TTL.
-- **Real-Time Streaming Architecture**: WebSocket-based progressive answer delivery.
-- **Transparent UI Observability**: Frontend displays real-time backend operations including query expansion variations, retrieved chunks with similarity scores, and source attributions giving users complete visibility into the RAG pipeline
-- **Semantic Chunking**: Uses `chunk_by_title` strategy to preserve document structure instead of naive fixed-size splitting
-- **Modular Clean Architecture**: Separation of core domain logic from web layer following SOLID principles, not a monolithic script
+- Hybrid retrieval (BM25 + vector search) with RRF fusion
+- Multi-query expansion for better recall
+- Two-tier caching (retrieval + answer caches) with LRU/TTL
+- Streaming/real-time answers via WebSockets
+- Semantic chunking to preserve document structure
+- Modular codebase for easy extension
 
 ## 📐 Architecture
 ![alt text](image.png)
@@ -23,48 +20,42 @@ DeepRecall implements several production-level features that go beyond basic imp
 
 https://github.com/user-attachments/assets/98f42624-295e-41c5-9aae-744205db482d
 
+## Quick Start
 
+1. Backend
 
+	 - Install dependencies:
 
+		 ```bash
+		 pip install -r backend/requirements.txt
+		 ```
 
-## 📡 API Reference
+	 - Start the server (example):
 
-**Ingestion**
+		 ```bash
+		 python backend/server.py
+		 ```
 
-```
-POST /ingest
-Content-Type: multipart/form-data
-Body: PDF file
+2. Frontend
 
-Response: { chunks_created, collection_name, status }
-```
+	 - Install and run:
 
-**Chat (Streaming)**
+		 ```bash
+		 npm install
+		 npm run dev
+		 ```
 
-```
-POST /chat/stream
-Body: { query, collection_name }
+3. Ingest a PDF and ask questions via the UI or the endpoints below.
 
-Response: Server-Sent Events (token, done, queries, chunks)
-```
+## Minimal API Summary
 
-**System**
+- POST /ingest — Upload a PDF (multipart/form-data). Returns ingestion status and created chunks.
+- POST /chat/stream — Streamed Q&A: send `{ query, collection_name }` and receive streaming tokens/events.
+- GET /health — Health check
+- GET /cache/stats — Cache metrics
+- POST /cache/clear — Clear caches
+- GET /benchmarks — System performance stats
 
-```
-GET /health - Health check
-GET /cache/stats - Cache performance metrics
-POST /cache/clear - Clear all caches
-GET /benchmarks - System performance statistics
-```
-
-## 🛠 Skills
-
-- **Advanced NLP/ML Systems**: RAG pipelines, embedding models, prompt engineering, retrieval algorithms
-- **Distributed Systems**: Caching strategies, async operations, WebSocket management, state consistency
-- **API Development**: RESTful design, streaming responses, WebSocket protocols, error handling
-- **Performance Optimization**: Multi-tier caching, query expansion, parallel processing, latency reduction
-- **Production Engineering**: Observability, monitoring, clean architecture, dependency injection
-- **Cloud Deployment**: Render.com deployment, environment management, CORS configuration
 
 ## 📊 Observability
 
