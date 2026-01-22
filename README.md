@@ -19,21 +19,12 @@ DeepRecall implements several production-level features that go beyond basic imp
 
 ![alt text](image-1.png)
 
-## 🧰 Tech Stack
+## Demo
 
-**Backend**
+https://github.com/user-attachments/assets/98f42624-295e-41c5-9aae-744205db482d
 
-- FastAPI
-- ChromaDB
-- OpenAI GPT-4o-mini
-- OpenAI text-embedding-3-small
-- Unstructured API
 
-**Frontend**
 
-- React + TypeScript
-- Vite
-- WebSocket
 
 
 ## 📡 API Reference
