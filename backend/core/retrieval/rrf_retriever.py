@@ -8,6 +8,8 @@ from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 
+from .cross_encoder_reranker import CrossEncoderReranker
+
 _executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
 
@@ -18,8 +20,10 @@ class ReciprocalRankFusionRetriever(BaseRetriever):
     bm25_retriever: Any
     vectorstore: Any = None
     multi_query_expander: Any = None
+    cross_encoder_reranker: Any = None
     k: int = 60
     top_n: int = 5
+    rerank_top_n: int = 10
 
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun = None
@@ -88,7 +92,14 @@ class ReciprocalRankFusionRetriever(BaseRetriever):
             f"[retrieve] {len(queries)}q -> {len(sparse)}bm25+{len(dense)}vec ({(perf_counter()-t0)*1000:.0f}ms)"
         )
 
-        fused = self._fuse_results(sparse, dense, top_n=self.top_n)
+
+        fused = self._fuse_results(
+            sparse, dense, top_n=self.rerank_top_n if self.cross_encoder_reranker else self.top_n
+        )
+        
+        if self.cross_encoder_reranker:
+            fused = self.cross_encoder_reranker.rerank(query, fused, top_k=self.top_n)
+        
         return fused, queries
 
     def _fuse_results(

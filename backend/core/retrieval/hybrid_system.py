@@ -7,19 +7,26 @@ from langchain_core.documents import Document
 from .query_expander import MultiQueryExpander
 from .rrf_retriever import ReciprocalRankFusionRetriever
 from .answer_generator import AnswerGenerator
+from .cross_encoder_reranker import CrossEncoderReranker
 
 
 class HybridRetrieverSystem:
-    def __init__(self, persist_directory=None, enable_multi_query: bool = True):
+    def __init__(self, persist_directory=None, enable_multi_query: bool = True, enable_reranker: bool = True):
         self.persist_directory = persist_directory
         self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
         self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         self.vectorstore = None
         self.retriever = None
         self.enable_multi_query = enable_multi_query
+        self.enable_reranker = enable_reranker
         self.multi_query_expander = (
             MultiQueryExpander(llm=self.llm, num_queries=3)
             if enable_multi_query
+            else None
+        )
+        self.cross_encoder_reranker = (
+            CrossEncoderReranker()
+            if enable_reranker
             else None
         )
         self.answer_generator = AnswerGenerator(llm=self.llm)
@@ -43,7 +50,9 @@ class HybridRetrieverSystem:
             bm25_retriever=bm25_retriever,
             vectorstore=self.vectorstore,
             multi_query_expander=self.multi_query_expander,
+            cross_encoder_reranker=self.cross_encoder_reranker,
             top_n=3,
+            rerank_top_n=10,
         )
         print(f"[vectorstore] indexed {len(documents)} docs")
         return self.vectorstore

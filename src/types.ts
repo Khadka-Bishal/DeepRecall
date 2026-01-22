@@ -27,6 +27,7 @@ export type Chunk = {
   scores?: {
     bm25: number;
     vector: number;
+    cross_encoder?: number;
   };
 };
 

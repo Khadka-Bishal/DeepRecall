@@ -11,7 +11,7 @@ DeepRecall is a Retrieval-Augmented Generation (RAG) system for answering questi
 - Semantic chunking to preserve document structure
 - Modular codebase for easy extension
 
-## 📐 Architecture
+## Architecture
 ![alt text](image.png)
 
 ![alt text](image-1.png)
