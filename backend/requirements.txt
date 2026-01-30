@@ -22,6 +22,7 @@ requests>=2.31.0
 aiofiles>=23.0.0
 boto3>=1.34.0
 tiktoken>=0.6.0  # Required for tokenizer
+psutil>=5.9.0    # Required for benchmarks
 
 # --- Observability (Production) ---
 langsmith>=0.1.0
