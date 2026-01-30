@@ -15,6 +15,7 @@ dist-ssr
 # Environment variables - NEVER commit these!
 .env
 .env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -30,6 +31,7 @@ dist-ssr
 # Backend - Large/Generated files
 backend/db_chroma/
 backend/venv/
+backend/.venv/
 backend/wandb/
 backend/__pycache__/
 backend/*.pyc
@@ -39,12 +41,41 @@ backend/benchmarks/
 *.sqlite3
 *.db
 
-# Root level large files (duplicates sometimes created)
+# Root level large files
 db_chroma/
 wandb/
 venv/
+.venv/
 __pycache__/
+lambda_build/
 
 # Temp files
 temp_*
 *.tmp
+# ... (existing ignores)
+
+# AWS / Lambda Build Artifacts
+*.zip
+backend/aws_infra/lambda_build_shared/
+backend/aws_infra/lambda_build/
+backend/aws_infra/temp_*/
+backend/aws_infra/ingestion_package.zip
+backend/aws_infra/indexing_package.zip
+
+# Local Data & Docs
+data/
+docs/
+# Keep essential architecture docs if needed, but per request keeping it clean
+!docs/ARCHITECTURE.md 
+
+# Clean up manual scripts
+backend/verify_pipeline_manual.py
+
+
+# Terraform (Root level ignores to be safe)
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
