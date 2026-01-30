@@ -1,97 +1,84 @@
-"""Document chunking utilities."""
 
 from typing import List, Dict, Any, Tuple
-from unstructured.chunking.title import chunk_by_title
 
+
+
+class LandingAIChunk:
+    """Internal chunk representation for LandingAI results."""
+    def __init__(self, text: str, page_number: int, grounding: Any = None, image_base64: str = None):
+        self.text = text
+        self.metadata = type('obj', (object,), {
+            'page_number': page_number,
+            'grounding': grounding,
+            'orig_elements': [],
+            'image_base64': image_base64
+        })
 
 class DocumentChunker:
-    """Chunks document elements into semantic units."""
+    """Chunks document elements (LandingAI ParseResponse) into semantic units."""
 
-    def __init__(
-        self,
-        max_characters: int = 3000,
-        new_after_n_chars: int = 2400,
-        combine_text_under_n_chars: int = 500,
-    ):
+    def __init__(self, max_characters: int = 3000, new_after_n_chars: int = 2400, combine_text_under_n_chars: int = 500):
+        # Parameters kept for compatibility but currently unused with Page-level splitting
         self.max_characters = max_characters
-        self.new_after_n_chars = new_after_n_chars
-        self.combine_text_under_n_chars = combine_text_under_n_chars
 
     def chunk(self, elements: List[Any]) -> Tuple[List[Any], List[Dict[str, Any]]]:
-        """Chunk elements into semantic units.
-
-        Returns:
-            Tuple of (chunks, preview_data)
+        """Process ParseResponse into Chunks.
+        
+        Args:
+            elements: List containing a single ParseResponse object
         """
-        chunks = chunk_by_title(
-            elements,
-            max_characters=self.max_characters,
-            new_after_n_chars=self.new_after_n_chars,
-            combine_text_under_n_chars=self.combine_text_under_n_chars,
-        )
-
+        if not elements:
+            return [], []
+            
+        # Unwrap the ParseResponse (it's actually [LandingAIPage] list now from partitioner)
+        # partitioner returns [LandingAIPage, LandingAIPage...]
+        # My previous chunker implementation expected ParseResponse inside elements[0]
+        # But wait, partitioner returns `pages` list directly if I look at 1749 code.
+        # "return pages, preview, stats"
+        # So elements IS the list of pages.
+        
+        chunks = []
         preview = []
-        for i, chunk in enumerate(chunks):
-            page = 1
-            images = []
-            tables = []
-            if hasattr(chunk, "metadata"):
-                page = getattr(chunk.metadata, "page_number", 1)
-                if hasattr(chunk.metadata, "orig_elements"):
-                    for el in chunk.metadata.orig_elements:
-                        el_type = type(el).__name__
-                        if el_type == "Table":
-                            tables.append(getattr(el.metadata, "text_as_html", el.text))
-                        elif el_type == "Image" and hasattr(
-                            el.metadata, "image_base64"
-                        ):
-                            images.append(el.metadata.image_base64)
-
-            preview.append(
-                {
-                    "id": f"chk_{i}",
-                    "content": chunk.text,
-                    "length": len(chunk.text),
-                    "page": page,
-                    "images": images,
-                    "tables": tables,
-                }
+        
+        # Strategy: One chunk per page (as per tutorial split="page")
+        for i, page_obj in enumerate(elements):
+            
+            chunk = LandingAIChunk(
+                text=page_obj.text,
+                page_number=page_obj.metadata.page_number,
+                grounding=page_obj.metadata.grounding,
+                image_base64=page_obj.metadata.image_base64
             )
+            chunks.append(chunk)
 
-        print(f"[chunk] {len(chunks)} chunks")
+            preview.append({
+                "id": f"chk_{i}",
+                "content": page_obj.text,
+                "length": len(page_obj.text),
+                "page": page_obj.metadata.page_number,
+                "images": ["Page Image"] if page_obj.metadata.image_base64 else [],
+                "tables": [],
+            })
+
+        print(f"[chunk] Created {len(chunks)} chunks from LandingAI pages")
         return chunks, preview
 
     @staticmethod
     def separate_content_types(chunk) -> Dict[str, Any]:
-        """Separate text, tables, and images from a chunk."""
-        content_data = {
+        """Separate text and grounding. Complex types (images/tables) pending implementation."""
+        images = []
+        if getattr(chunk.metadata, "image_base64", None):
+            images.append(chunk.metadata.image_base64)
+
+        return {
             "text": chunk.text,
             "tables": [],
-            "images": [],
-            "types": ["text"],
+            "images": images,
+            "types": ["text", "image"] if images else ["text"],
+            "grounding": getattr(chunk.metadata, "grounding", None)
         }
-
-        if hasattr(chunk, "metadata") and hasattr(chunk.metadata, "orig_elements"):
-            for el in chunk.metadata.orig_elements:
-                el_type = type(el).__name__
-                if el_type == "Table":
-                    content_data["types"].append("table")
-                    content_data["tables"].append(
-                        getattr(el.metadata, "text_as_html", el.text)
-                    )
-                elif el_type == "Image" and hasattr(el.metadata, "image_base64"):
-                    content_data["types"].append("image")
-                    content_data["images"].append(el.metadata.image_base64)
-
-        content_data["types"] = list(set(content_data["types"]))
-        return content_data
 
     @staticmethod
     def has_complex_content(chunk) -> bool:
         """Check if a chunk contains tables or images."""
-        if hasattr(chunk, "metadata") and hasattr(chunk.metadata, "orig_elements"):
-            for element in chunk.metadata.orig_elements or []:
-                element_type = type(element).__name__
-                if element_type in {"Table", "Image"}:
-                    return True
         return False

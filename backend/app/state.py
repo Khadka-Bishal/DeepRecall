@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from core.retrieval import HybridRetrieverSystem
+    from core.retrieval import PineconeRetrieverSystem
     from core.ingestion import IngestionPipeline
     from app.services.observability import ObservabilityManager
 
@@ -11,7 +11,7 @@ class AppState:
     _inst: Optional[AppState] = None
 
     def __init__(self):
-        self.retriever: Optional[HybridRetrieverSystem] = None
+        self.retriever: Optional[PineconeRetrieverSystem] = None
         self.pipeline: Optional[IngestionPipeline] = None
         self.obs: Optional[ObservabilityManager] = None
 

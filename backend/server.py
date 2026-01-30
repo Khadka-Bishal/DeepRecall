@@ -1,72 +1,51 @@
-import os
-import logging
-from contextlib import asynccontextmanager
+"""DeepRecall FastAPI Server.
 
+Main entry point for the DeepRecall API server. Handles initialization
+of all core systems and middleware configuration.
+"""
+
+import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from core.ingestion import IngestionPipeline
-from core.retrieval import HybridRetrieverSystem
-from app.state import get_app_state
-from app.services import get_observability_manager
+from core.config import get_settings
+from core.logging_config import setup_logging
 from app.websocket import get_connection_manager
-from app.routes import ingestion_router, chat_router, system_router
+from app.routes import ingestion_router, chat_router, system_router, aws_ingestion_router
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.bootstrap import lifespan
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+# Configure logging before anything else
+setup_logging(level="INFO")
 log = logging.getLogger(__name__)
 
 
-def _init_obs():
-    if os.environ.get("DISABLE_OBSERVABILITY") == "true":
-        return None
-    try:
-        obs = get_observability_manager()
-        obs.setup_langsmith("DeepRecall")
-        obs.setup_wandb(
-            "deeprecall",
-            config={
-                "model": "gpt-4o-mini",
-                "embedding_model": "text-embedding-3-small",
-                "retrieval": "hybrid_rrf",
-            },
-        )
-        return obs
-    except Exception as e:
-        log.warning("obs init skipped: %s", e)
-        return None
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    retriever = HybridRetrieverSystem()
-    pipeline = IngestionPipeline(retriever_system=retriever)
-    obs = _init_obs()
-
-    get_app_state().initialize(retriever, pipeline, obs)
-    log.info("app started")
-    yield
-    if obs:
-        obs.finish()
-    log.info("app stopped")
-
-
+# Initialize FastAPI app
 app = FastAPI(title="DeepRecall API", lifespan=lifespan)
 
+# Add rate limiting middleware (MUST be added before CORS)
+app.add_middleware(RateLimitMiddleware)
+
+# Configure CORS with explicit origins (not wildcards)
+settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Register routers
 app.include_router(ingestion_router)
 app.include_router(chat_router)
 app.include_router(system_router)
+app.include_router(aws_ingestion_router)
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    """WebSocket endpoint for real-time pipeline updates."""
     mgr = get_connection_manager()
     await mgr.connect(ws)
     try:
@@ -78,5 +57,4 @@ async def websocket_endpoint(ws: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

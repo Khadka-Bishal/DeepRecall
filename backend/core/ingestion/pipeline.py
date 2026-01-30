@@ -1,15 +1,20 @@
 """Main ingestion pipeline orchestrator."""
 
 import json
+import logging
 import asyncio
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from time import perf_counter
+
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
+from core.config import get_settings
 from .partitioner import DocumentPartitioner
 from .chunker import DocumentChunker
 from .summarizer import ContentSummarizer
+
+log = logging.getLogger(__name__)
 
 
 class IngestionReport:
@@ -24,11 +29,22 @@ class IngestionReport:
 
 
 class IngestionPipeline:
-    """Main pipeline for document ingestion."""
+    """Main pipeline for document ingestion.
+    
+    Orchestrates the full document processing workflow:
+    partitioning → chunking → summarizing → vectorizing.
+    """
 
     def __init__(self, retriever_system=None):
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-        self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+        """Initialize the ingestion pipeline.
+        
+        Args:
+            retriever_system: Optional retriever system for vectorization.
+        """
+        settings = get_settings()
+        
+        self.llm = ChatOpenAI(model=settings.llm_model, temperature=settings.llm_temperature)
+        self.embedding_model = OpenAIEmbeddings(model=settings.embedding_model)
         self.retriever_system = retriever_system
 
         # Initialize components
@@ -67,13 +83,12 @@ class IngestionPipeline:
                 page_content=content_data["text"],
                 metadata={
                     "chunk_id": str(i),
-                    "original_content": json.dumps(
-                        {
-                            "raw_text": content_data["text"],
-                            "tables_html": content_data["tables"],
-                            "images_base64": content_data["images"],
-                        }
-                    ),
+                    "original_content": json.dumps({
+                        "raw_text": content_data["text"],
+                        "tables_html": content_data["tables"],
+                        "images_base64": content_data["images"],
+                        "grounding": content_data.get("grounding"),
+                    }),
                 },
             )
             documents.append(doc)
@@ -98,18 +113,16 @@ class IngestionPipeline:
                 page_content=data["text"],
                 metadata={
                     "chunk_id": str(i),
-                    "original_content": json.dumps(
-                        {
-                            "raw_text": data["text"],
-                            "tables_html": data["tables"],
-                            "images_base64": data["images"],
-                        }
-                    ),
+                    "original_content": json.dumps({
+                        "raw_text": data["text"],
+                        "tables_html": data["tables"],
+                        "images_base64": data["images"],
+                        "grounding": data.get("grounding"),
+                    }),
                 },
             )
 
         if ai_tasks:
-
             async def process_ai_chunk(idx: int, d: dict) -> Tuple[int, Document]:
                 enhanced = await self.summarizer.asummarize(
                     d["text"], d["tables"], d["images"]
@@ -118,13 +131,11 @@ class IngestionPipeline:
                     page_content=enhanced,
                     metadata={
                         "chunk_id": str(idx),
-                        "original_content": json.dumps(
-                            {
-                                "raw_text": d["text"],
-                                "tables_html": d["tables"],
-                                "images_base64": d["images"],
-                            }
-                        ),
+                        "original_content": json.dumps({
+                            "raw_text": d["text"],
+                            "tables_html": d["tables"],
+                            "images_base64": d["images"],
+                        }),
                     },
                 )
 
@@ -135,11 +146,24 @@ class IngestionPipeline:
                 results[idx] = doc
 
         docs = [results[i] for i in sorted(results.keys())]
-        print(f"[summarize] {len(chunks)} chunks in {perf_counter()-t0:.1f}s")
+        log.info("Summarized %d chunks in %.1fs", len(chunks), perf_counter() - t0)
         return docs
 
-    async def run(self, file_path: str, manager=None) -> Dict[str, Any]:
-        """Run the full ingestion pipeline."""
+    async def run(
+        self, file_path: str, manager: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """Run the full ingestion pipeline.
+        
+        Args:
+            file_path: Path to the document to process.
+            manager: Optional WebSocket manager for progress updates.
+            
+        Returns:
+            Dict containing 'documents' and 'report' keys.
+            
+        Raises:
+            ValueError: If no valid content extracted.
+        """
         loop = asyncio.get_event_loop()
 
         # Partition
@@ -148,15 +172,13 @@ class IngestionPipeline:
         )
 
         if manager:
-            await manager.broadcast(
-                {
-                    "type": "pipeline",
-                    "stage": "PARTITIONING",
-                    "status": "complete",
-                    "count": len(elements),
-                    "meta": partition_stats,
-                }
-            )
+            await manager.broadcast({
+                "type": "pipeline",
+                "stage": "PARTITIONING",
+                "status": "complete",
+                "count": len(elements),
+                "meta": partition_stats,
+            })
             await manager.broadcast(
                 {"type": "pipeline", "stage": "CHUNKING", "status": "active"}
             )
@@ -167,14 +189,12 @@ class IngestionPipeline:
         )
 
         if manager:
-            await manager.broadcast(
-                {
-                    "type": "pipeline",
-                    "stage": "CHUNKING",
-                    "status": "complete",
-                    "count": len(chunks),
-                }
-            )
+            await manager.broadcast({
+                "type": "pipeline",
+                "stage": "CHUNKING",
+                "status": "complete",
+                "count": len(chunks),
+            })
 
         # Check if AI summarization needed
         needs_ai = any(self.chunker.has_complex_content(chunk) for chunk in chunks)
@@ -208,19 +228,11 @@ class IngestionPipeline:
 
         # Count totals
         total_images = sum(
-            len(
-                json.loads(d.metadata.get("original_content", "{}")).get(
-                    "images_base64", []
-                )
-            )
+            len(json.loads(d.metadata.get("original_content", "{}")).get("images_base64", []))
             for d in processed_docs
         )
         total_tables = sum(
-            len(
-                json.loads(d.metadata.get("original_content", "{}")).get(
-                    "tables_html", []
-                )
-            )
+            len(json.loads(d.metadata.get("original_content", "{}")).get("tables_html", []))
             for d in processed_docs
         )
 
@@ -240,22 +252,21 @@ class IngestionPipeline:
                 {"type": "pipeline", "stage": "VECTORIZING", "status": "complete"}
             )
 
-        print(f"[pipeline] {len(processed_docs)} docs indexed")
+        log.info("Pipeline complete: %d docs indexed", len(processed_docs))
 
         # Build final preview
         final_chunk_preview = []
         for doc in processed_docs:
             orig = json.loads(doc.metadata.get("original_content", "{}"))
-            final_chunk_preview.append(
-                {
-                    "id": f"chk_{doc.metadata.get('chunk_id', '0')}",
-                    "content": orig.get("raw_text", doc.page_content),
-                    "length": len(orig.get("raw_text", doc.page_content)),
-                    "page": doc.metadata.get("page_number", 1),
-                    "images": orig.get("images_base64", []),
-                    "tables": orig.get("tables_html", []),
-                }
-            )
+            final_chunk_preview.append({
+                "id": f"chk_{doc.metadata.get('chunk_id', '0')}",
+                "content": orig.get("raw_text", doc.page_content),
+                "length": len(orig.get("raw_text", doc.page_content)),
+                "page": doc.metadata.get("page_number", 1),
+                "images": orig.get("images_base64", []),
+                "tables": orig.get("tables_html", []),
+                "grounding": orig.get("grounding"),
+            })
 
         return {
             "documents": processed_docs,

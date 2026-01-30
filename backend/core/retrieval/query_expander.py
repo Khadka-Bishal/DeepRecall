@@ -1,80 +1,99 @@
 """Multi-query expansion for improved retrieval recall."""
 
+import logging
 from time import perf_counter
 from typing import List
+
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from core.prompts import QUERY_EXPANSION_SYSTEM, get_query_expansion_user_prompt
+
+log = logging.getLogger(__name__)
+
 
 class MultiQueryExpander:
-    """LLM-based query expansion for improved recall."""
+    """LLM-based query expansion for improved recall.
+    
+    Generates alternative phrasings of a user query to improve
+    retrieval coverage across different terminology.
+    """
 
     def __init__(self, llm: ChatOpenAI, num_queries: int = 3):
+        """Initialize the query expander.
+        
+        Args:
+            llm: LangChain ChatOpenAI instance to use for expansion.
+            num_queries: Total number of queries to return (original + generated).
+        """
         self.llm = llm
         self.num_queries = num_queries
 
-    def expand_query(self, query: str) -> List[str]:
-        t0 = perf_counter()
-
-        system_prompt = """You are a query expansion expert. Given a user question, generate alternative versions 
-that capture different aspects or phrasings of the same information need.
-
-Rules:
-1. Each query should approach the question from a different angle
-2. Use different keywords and terminology (synonyms, related terms)
-3. Keep queries concise and search-friendly
-4. Output ONLY the queries, one per line, no numbering or bullets"""
-
-        user_prompt = f"""Generate {self.num_queries - 1} alternative search queries for:
-
-"{query}"
-
-Output {self.num_queries - 1} queries, one per line:"""
-
-        response = self.llm.invoke(
-            [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
-        )
-
-        # Parse response into list of queries, strip quotes
-        expanded = [
+    def _parse_response(self, response_content: str) -> List[str]:
+        """Parse LLM response into list of queries.
+        
+        Args:
+            response_content: Raw response content from LLM.
+            
+        Returns:
+            List of cleaned query strings.
+        """
+        return [
             q.strip().strip('"').strip("'")
-            for q in response.content.strip().split("\n")
+            for q in response_content.strip().split("\n")
             if q.strip()
         ]
 
-        all_queries = [query] + expanded[: self.num_queries - 1]
-        print(f"[expand] {len(all_queries)} queries ({(perf_counter()-t0)*1000:.0f}ms)")
+    def expand_query(self, query: str) -> List[str]:
+        """Expand a query into multiple alternative phrasings.
+        
+        Args:
+            query: The original user query.
+            
+        Returns:
+            List of queries starting with original, followed by alternatives.
+        """
+        t0 = perf_counter()
+        num_alternatives = self.num_queries - 1
+        
+        user_prompt = get_query_expansion_user_prompt(query, num_alternatives)
+        
+        response = self.llm.invoke([
+            SystemMessage(content=QUERY_EXPANSION_SYSTEM),
+            HumanMessage(content=user_prompt)
+        ])
+
+        expanded = self._parse_response(response.content)
+        all_queries = [query] + expanded[:num_alternatives]
+        
+        elapsed_ms = (perf_counter() - t0) * 1000
+        log.info("Expanded to %d queries (%.0fms)", len(all_queries), elapsed_ms)
+        
         return all_queries
 
     async def aexpand_query(self, query: str) -> List[str]:
+        """Async version of expand_query.
+        
+        Args:
+            query: The original user query.
+            
+        Returns:
+            List of queries starting with original, followed by alternatives.
+        """
         t0 = perf_counter()
+        num_alternatives = self.num_queries - 1
+        
+        user_prompt = get_query_expansion_user_prompt(query, num_alternatives)
+        
+        response = await self.llm.ainvoke([
+            SystemMessage(content=QUERY_EXPANSION_SYSTEM),
+            HumanMessage(content=user_prompt)
+        ])
 
-        system_prompt = """You are a query expansion expert. Given a user question, generate alternative versions 
-that capture different aspects or phrasings of the same information need.
-
-Rules:
-1. Each query should approach the question from a different angle
-2. Use different keywords and terminology (synonyms, related terms)
-3. Keep queries concise and search-friendly
-4. Output ONLY the queries, one per line, no numbering or bullets"""
-
-        user_prompt = f"""Generate {self.num_queries - 1} alternative search queries for:
-
-"{query}"
-
-Output {self.num_queries - 1} queries, one per line:"""
-
-        response = await self.llm.ainvoke(
-            [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
-        )
-
-        # Parse response into list of queries, strip quotes
-        expanded = [
-            q.strip().strip('"').strip("'")
-            for q in response.content.strip().split("\n")
-            if q.strip()
-        ]
-
-        all_queries = [query] + expanded[: self.num_queries - 1]
-        print(f"[expand] {len(all_queries)} queries ({(perf_counter()-t0)*1000:.0f}ms)")
+        expanded = self._parse_response(response.content)
+        all_queries = [query] + expanded[:num_alternatives]
+        
+        elapsed_ms = (perf_counter() - t0) * 1000
+        log.info("Expanded to %d queries (%.0fms)", len(all_queries), elapsed_ms)
+        
         return all_queries
