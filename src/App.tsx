@@ -61,7 +61,7 @@ const AnimatedRoutes = () => {
 
 const App = () => {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/DeepRecall">
       <ToastProvider>
         <AnimatedRoutes />
       </ToastProvider>
