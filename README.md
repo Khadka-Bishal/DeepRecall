@@ -16,26 +16,19 @@ The system is deployed across a hybrid environment, with infrastructure managed 
 
 ```mermaid
 graph TD
-    subgraph Client ["Client Side"]
-        UI[React Frontend]
+    subgraph "Client & Backend Tier"
+        direction LR
+        C["React + Vite Frontend"] <-->|REST / WebSocket| B["FastAPI Backend"]
+        B <-->|Query| P["Pinecone Vector DB"]
     end
 
-    subgraph Backend ["Orchestration"]
-        API[FastAPI Server]
+    subgraph "AWS Serverless (Managed by Terraform)"
+        direction LR
+        S["S3 Buckets"] -->|"Event Notification"| SQS["SQS Queue"] -->|"Async Trigger"| L["ADE Processor Lambda"]
     end
 
-    subgraph AWS ["AWS Serverless (Terraform)"]
-        S3[S3 Input] --> SQS[SQS Queue] --> Lambda[ADE Processor]
-    end
-
-    subgraph KB ["Knowledge Base"]
-        Pinecone[(Pinecone DB)]
-    end
-
-    UI <-->|REST/WS| API
-    API <-->|Query| Pinecone
-    API -->|Upload| S3
-    Lambda -->|Vectors| Pinecone
+    B -->|"Secure Upload"| S
+    L -->|"Semantic Chunking"| P
 ```
 
 ### Detailed Data Flow
@@ -75,17 +68,16 @@ Handles high-scale document processing using an event-driven serverless architec
 
 ```mermaid
 graph TD
-    PDF[PDF File] -->|Upload| S3[S3 Input]
-    S3 -->|Trigger| L[Lambda Processor]
+    PDF[PDF File] -->|Upload| S3[S3 Input] -->|Trigger| L[Lambda Processor]
     
-    subgraph Processing ["Processing Logic"]
-        L --> P[ADE Parser]
-        P --> C[Semantic Chunker]
-        C --> E[Embedding Model]
+    subgraph "Processing Logic"
+        direction LR
+        P[ADE Parser] --> C[Semantic Chunker] --> E[Embedding Model]
     end
     
-    E --> DB[(Pinecone Vector DB)]
-    E --> Out[S3 Output JSON]
+    L --> P
+    E -->|Vectors| DB[(Pinecone)]
+    E -->|JSON| Out[S3 Output]
 ```
 
 ### Retrieval Pipeline (Read Path)
@@ -94,20 +86,18 @@ DeepRecall employs a "Fusion Retrieval" strategy to ensure high recall and preci
 
 ```mermaid
 graph TD
-    Q[User Query] --> ME[Multi-Query Expansion]
-    ME --> P[Parallel Search]
+    Q[User Query] --> ME[Multi-Query Expansion] -->|Q1, ..., Qn| P[Parallel Search]
     
-    subgraph Hybrid ["Hybrid Retrieval"]
-        P --> Dense["Dense Vector Search"]
-        P --> BM25["Keyword Search (BM25)"]
+    subgraph "Hybrid Retrieval"
+        direction LR
+        V["Vector Search (Dense)"]
+        K["Keyword Search (BM25)"]
+        V & K --> RRF[RRF Fusion]
     end
     
-    Dense --> RRF[RRF Fusion]
-    BM25 --> RRF
-    
-    RRF --> CE[Cross-Encoder Reranking]
-    CE --> LLM[LLM Generation]
-    LLM --> A[Streamed Answer]
+    P --> V
+    P --> K
+    RRF -->|Top 60| CE[Cross-Encoder Reranking] -->|Top 5| LLM[LLM Generation] --> A[Streamed Answer]
 ```
 
 ## Quick Start
