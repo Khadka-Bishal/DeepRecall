@@ -15,7 +15,7 @@ DeepRecall is a hybrid Retrieval-Augmented Generation (RAG) system that uses AWS
 The system is deployed across a hybrid environment, with infrastructure managed via **Terraform**.
 
 ```mermaid
-graph LR
+graph TD
     subgraph Client ["Client Side"]
         UI[React Frontend]
     end
@@ -24,19 +24,17 @@ graph LR
         API[FastAPI Server]
     end
 
-    subgraph AWS ["AWS Serverless (Managed by Terraform)"]
-        S3[S3 Input] -->|Event| SQS[SQS Queue]
-        SQS -->|Trigger| Lambda[ADE Processor]
+    subgraph AWS ["AWS Serverless (Terraform)"]
+        S3[S3 Input] --> SQS[SQS Queue] --> Lambda[ADE Processor]
     end
 
     subgraph KB ["Knowledge Base"]
         Pinecone[(Pinecone DB)]
     end
 
-    %% Flows
-    UI <-->|REST / WS| API
+    UI <-->|REST/WS| API
     API <-->|Query| Pinecone
-    API -->|Secure Upload| S3
+    API -->|Upload| S3
     Lambda -->|Vectors| Pinecone
 ```
 
@@ -76,18 +74,18 @@ sequenceDiagram
 Handles high-scale document processing using an event-driven serverless architecture:
 
 ```mermaid
-graph LR
+graph TD
     PDF[PDF File] -->|Upload| S3[S3 Input]
     S3 -->|Trigger| L[Lambda Processor]
     
-    subgraph "Processing Logic"
+    subgraph Processing ["Processing Logic"]
         L --> P[ADE Parser]
         P --> C[Semantic Chunker]
         C --> E[Embedding Model]
     end
     
-    E -->|Vectors| DB[(Pinecone)]
-    E -->|JSON| Out[S3 Output]
+    E --> DB[(Pinecone Vector DB)]
+    E --> Out[S3 Output JSON]
 ```
 
 ### Retrieval Pipeline (Read Path)
@@ -95,19 +93,20 @@ graph LR
 DeepRecall employs a "Fusion Retrieval" strategy to ensure high recall and precision:
 
 ```mermaid
-graph LR
+graph TD
     Q[User Query] --> ME[Multi-Query Expansion]
-    ME -->|Q1, ..., Qn| P[Parallel Search]
+    ME --> P[Parallel Search]
     
-    subgraph "Hybrid Retrieval"
-        P --> V["Vector Search (Dense)"]
-        P --> K["Keyword Search (BM25)"]
+    subgraph Hybrid ["Hybrid Retrieval"]
+        P --> Dense["Dense Vector Search"]
+        P --> BM25["Keyword Search (BM25)"]
     end
     
-    V --> RRF[RRF Fusion]
-    K --> RRF
-    RRF -->|Top 60| CE[Cross-Encoder Reranking]
-    CE -->|Top 5 | LLM[LLM Generation]
+    Dense --> RRF[RRF Fusion]
+    BM25 --> RRF
+    
+    RRF --> CE[Cross-Encoder Reranking]
+    CE --> LLM[LLM Generation]
     LLM --> A[Streamed Answer]
 ```
 
