@@ -61,7 +61,7 @@ const AnimatedRoutes = () => {
 
 const App = () => {
   return (
-    <BrowserRouter basename="/DeepRecall">
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <ToastProvider>
         <AnimatedRoutes />
       </ToastProvider>
