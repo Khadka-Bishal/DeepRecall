@@ -1,5 +1,3 @@
-# DeepRecall
-
 DeepRecall is a hybrid Retrieval-Augmented Generation (RAG) system that uses AWS Lambda for document processing. It separates the "Write Path" (heavy lifting) from the "Read Path" (latency-sensitive chat).
 
 ## Technical Overview

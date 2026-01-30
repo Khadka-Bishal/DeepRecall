@@ -14,7 +14,11 @@ from core.config import get_settings
 from core.utils import pinecone_match_to_document, pinecone_match_to_scored_chunk
 from .answer_generator import AnswerGenerator
 from .fusion import rrf_fusion
-from .cross_encoder_reranker import CrossEncoderReranker
+try:
+    from .cross_encoder_reranker import CrossEncoderReranker
+except ImportError:
+    CrossEncoderReranker = None
+
 from .query_expander import MultiQueryExpander
 
 log = logging.getLogger(__name__)
@@ -71,7 +75,13 @@ class PineconeRetrieverSystem:
         self._bm25_build_attempted = False
         
         # Initialize reranker if enabled
-        self.cross_encoder_reranker = CrossEncoderReranker() if self.enable_reranker else None
+        if self.enable_reranker and CrossEncoderReranker:
+            self.cross_encoder_reranker = CrossEncoderReranker()
+        else:
+            if self.enable_reranker:
+                log.warning("Reranking disabled: 'sentence-transformers' not installed.")
+            self.enable_reranker = False
+            self.cross_encoder_reranker = None
         
         log.info("Connected to Pinecone index: %s", self.index_name)
         if self.enable_hybrid:

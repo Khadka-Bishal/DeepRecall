@@ -5,7 +5,11 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 
 from core.config import get_settings
-from core.ingestion import IngestionPipeline
+try:
+    from core.ingestion import IngestionPipeline
+except ImportError:
+    IngestionPipeline = None
+
 from core.retrieval import PineconeRetrieverSystem
 from app.state import get_app_state
 from app.services import get_observability_manager
@@ -45,9 +49,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     # Initialize Core Systems
     retriever = PineconeRetrieverSystem()
-    pipeline = IngestionPipeline(
-        retriever_system=None if settings.use_aws_pipeline else retriever
-    )
+    retriever = PineconeRetrieverSystem()
+    
+    pipeline = None
+    if IngestionPipeline:
+        pipeline = IngestionPipeline(
+            retriever_system=None if settings.use_aws_pipeline else retriever
+        )
+    else:
+        log.warning("IngestionPipeline disabled: Dependencies missing")
     obs = _init_observability()
 
     # Hydrate Global State
