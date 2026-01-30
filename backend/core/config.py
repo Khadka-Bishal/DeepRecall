@@ -49,10 +49,15 @@ class Settings(BaseSettings):
     answer_cache_ttl_seconds: int = Field(default=600, alias="ANSWER_CACHE_TTL_SECONDS")
     
     # CORS Configuration
-    allowed_origins: List[str] = Field(
-        default=["http://localhost:5173", "http://localhost:3000", "http://localhost:5174", "http://localhost:5175"],
+    allowed_origins: str = Field(
+        default="http://localhost:5173,http://localhost:3000,http://localhost:5174,http://localhost:5175",
         alias="ALLOWED_ORIGINS"
     )
+
+    @property
+    def allowed_origins_list(self) -> List[str]:
+        """Convert comma-separated string to list."""
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
     
     # Observability
     disable_observability: bool = Field(default=False, alias="DISABLE_OBSERVABILITY")
