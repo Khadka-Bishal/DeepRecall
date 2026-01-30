@@ -6,8 +6,11 @@ export const formatTime = (date: Date): string => {
   });
 };
 
-export const formatScore = (score: number, decimals: number = 2): string => {
-  return score.toFixed(decimals);
+export const formatScore = (score: number | string | undefined, decimals: number = 2): string => {
+  if (score === undefined || score === null) return '0.00';
+  const num = typeof score === 'string' ? parseFloat(score) : score;
+  if (isNaN(num)) return '0.00';
+  return num.toFixed(decimals);
 };
 
 export const formatPercentage = (value: number, decimals: number = 0): string => {
@@ -37,5 +40,12 @@ export const formatElementType = (type: string, maxLength: number = 6): string =
 };
 
 export const formatChunkId = (id: string): string => {
-  return `src_${id}.pdf`;
+  // Extract filename part if possible, otherwise truncate hash
+  const parts = id.split('_');
+  if (parts.length > 1) {
+    // Attempt to show a cleaner identifier (e.g. "Doc_A1B2...")
+    const last = parts[parts.length - 1];
+    return `Ref_${last.substring(0, 8)}`;
+  }
+  return `Ref_${id.substring(0, 8)}`;
 };

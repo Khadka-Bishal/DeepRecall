@@ -1,6 +1,13 @@
-import React from 'react';
-import { Minimize2, ExternalLink } from 'lucide-react';
+import { Minimize2 } from 'lucide-react';
 import { Chunk, PartitionElement } from '../types';
+import { UnifiedItemCard } from './PipelineComponents';
+import { 
+  formatElementType, 
+  getElementColorClasses, 
+  formatPercentage, 
+  formatChunkId, 
+  pluralize 
+} from '../utils';
 
 export const StepDetailView = ({
   isOpen,
@@ -39,71 +46,41 @@ export const StepDetailView = ({
 
       <div className="flex-1 overflow-y-auto p-6 bg-grid">
         <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {data.type === 'chunks' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(data.items as Chunk[]).map((chunk) => (
-                <div
+              (data.items as Chunk[]).map((chunk) => (
+                <UnifiedItemCard
                   key={chunk.id}
-                  onClick={() => onInspectChunk?.(chunk)}
-                  className="bg-zinc-950 border border-zinc-800 rounded-md overflow-hidden flex flex-col h-[400px] hover:border-zinc-600 transition-colors group cursor-pointer"
-                >
-                  <div className="px-3 py-2 border-b border-zinc-800 bg-zinc-900/30 flex items-center justify-between">
-                    <span className="text-xs font-mono text-zinc-400">{chunk.id}</span>
-                    <span className="text-[10px] font-mono text-zinc-600">pg.{chunk.page}</span>
-                  </div>
-                  <div className="flex-1 p-4 overflow-y-auto">
-                    <div className="text-xs text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">
-                      {chunk.originalContent || chunk.content}
-                    </div>
-                    {chunk.images && chunk.images.length > 0 && (
-                      <div className="mt-4 border-t border-zinc-800 pt-4">
-                        <div className="text-[10px] text-zinc-500 uppercase mb-2">
-                          Figure Extracted
-                        </div>
-                        <img
-                          src={chunk.images[0]}
-                          className="w-full rounded border border-zinc-800 opacity-80 group-hover:opacity-100 transition-opacity"
-                          alt="Chunk content"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {(data.items as PartitionElement[]).map((el, i) => (
-                <div
-                  key={i}
-                  onClick={() => onInspectElement?.(el)}
-                  className="bg-zinc-950 border border-zinc-800 rounded p-3 hover:border-zinc-700 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
-                        el.type === 'Title'
-                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                          : el.type === 'Table'
-                          ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                          : el.type === 'Image'
-                          ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                          : 'bg-zinc-800 text-zinc-500 border-zinc-700'
-                      }`}
-                    >
-                      {el.type}
-                    </span>
+                  title={formatChunkId(chunk.id)}
+                  subtitle={
                     <span className="text-[10px] text-zinc-600 font-mono">
-                      {(el.prob * 100).toFixed(0)}%
+                      pg.{chunk.page} • {pluralize((chunk.originalContent || chunk.content).length, 'char')}
                     </span>
-                  </div>
-                  <div className="text-xs text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap">
-                    {el.text}
-                  </div>
-                </div>
-              ))}
-            </div>
+                  }
+                  content={chunk.originalContent || chunk.content}
+                  images={chunk.images}
+                  onClick={() => onInspectChunk?.(chunk)}
+                  className="h-64"
+                />
+              ))
+          ) : (
+              (data.items as PartitionElement[]).map((el, i) => (
+                <UnifiedItemCard
+                  key={i}
+                  title={formatElementType(el.type)}
+                  subtitle={<span className="text-[9px] text-zinc-600 font-mono">pg.{el.page}</span>}
+                  badges={
+                      <span className={`text-[9px] font-mono px-1 py-0.5 rounded border ${getElementColorClasses(el.type)}`}>
+                        {formatPercentage(el.prob)}
+                      </span>
+                  }
+                  content={el.text}
+                  onClick={() => onInspectElement?.(el)}
+                  className="h-64"
+                />
+              ))
           )}
+          </div>
         </div>
       </div>
     </div>

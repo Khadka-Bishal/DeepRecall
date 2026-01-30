@@ -27,9 +27,10 @@ export const DetailModal = ({
       const chunk = content as Chunk;
       return activeTab === "preview" ? (
         <div className="space-y-4">
-          <div className="text-sm text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">
-            {chunk.originalContent || chunk.content}
-          </div>
+          <div 
+            className="text-sm text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap [&>table]:w-full [&>table]:border-collapse [&>table]:my-4 [&>table_td]:border [&>table_td]:border-zinc-700 [&>table_td]:p-2 [&>table_th]:bg-zinc-800 [&>table_th]:p-2"
+            dangerouslySetInnerHTML={{ __html: chunk.originalContent || chunk.content }}
+          />
           {chunk.images && chunk.images.length > 0 && (
             <div className="mt-4">
               <div className="text-xs text-zinc-500 font-mono mb-2 uppercase">
@@ -55,9 +56,10 @@ export const DetailModal = ({
     if (type === "element") {
       const el = content as PartitionElement;
       return activeTab === "preview" ? (
-        <div className="text-sm text-zinc-300 font-mono whitespace-pre-wrap">
-          {el.text}
-        </div>
+        <div 
+          className="text-sm text-zinc-300 font-mono whitespace-pre-wrap [&>table]:w-full [&>table]:border-collapse [&>table]:my-4 [&>table_td]:border [&>table_td]:border-zinc-700 [&>table_td]:p-2 [&>table_th]:bg-zinc-800 [&>table_th]:p-2"
+          dangerouslySetInnerHTML={{ __html: el.text }}
+        />
       ) : (
         <pre className="text-xs text-zinc-400 font-mono bg-zinc-950 p-4 rounded overflow-auto">
           {JSON.stringify(el, null, 2)}

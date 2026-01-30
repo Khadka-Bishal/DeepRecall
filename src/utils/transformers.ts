@@ -24,6 +24,7 @@ export const transformChunk = (apiChunk: any, index: number): Chunk => {
     page: apiChunk.page || 1,
     score: apiChunk.score || 0,
     scores: apiChunk.scores || { bm25: 0, vector: 0 },
+    bbox: apiChunk.bbox,
   };
 };
 
@@ -68,6 +69,20 @@ export const extractRetrievedChunks = (chatResponse: any): Chunk[] => {
       page: chunk.page || 1,
       score: chunk.score || 0,
       scores: chunk.scores || { bm25: 0, vector: 0 },
+      bbox: chunk.bbox,
     })) || []
   );
+};
+
+export const decodeHtml = (html: string) => {
+  if (typeof window === 'undefined') return html;
+  
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.documentElement.textContent || html;
+  } catch (e) {
+    console.error("HTML Decode failed", e);
+    return html;
+  }
 };

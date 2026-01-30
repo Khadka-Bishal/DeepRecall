@@ -9,7 +9,7 @@ import {
 } from '../utils';
 import { createUserMessage, createAssistantMessage, createErrorMessage } from '../services';
 
-export const useRAG = () => {
+export const useRAG = ({ onError }: { onError: (msg: string) => void }) => {
   // Pipeline State
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStep>(
     PIPELINE_STEPS.IDLE as PipelineStep
@@ -32,75 +32,103 @@ export const useRAG = () => {
   // Minimal WebSocket listener for live pipeline stages
   const wsUrl = useMemo(() => {
     try {
-      const base = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+      const base = (import.meta as any).env.VITE_API_URL || 'http://127.0.0.1:8000';
       const asWs = base.replace(/^http/, 'ws');
       return `${asWs}/ws`;
     } catch {
-      return 'ws://localhost:8000/ws';
+      return 'ws://127.0.0.1:8000/ws';
     }
   }, []);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
-    try {
-      ws = new WebSocket(wsUrl);
-      ws.onopen = () => {};
-      ws.onerror = (err) => {};
-      ws.onclose = () => {};
-      ws.onmessage = (evt) => {
-        try {
-          const msg = JSON.parse(evt.data);
+    let reconnectTimeout: NodeJS.Timeout;
+    let isMounted = true;
+    let retryCount = 0;
 
-          if (msg?.type === 'pipeline' && typeof msg?.stage === 'string') {
-            const stage = msg.stage.toLowerCase();
-            if (
-              stage === 'uploading' ||
-              stage === 'partitioning' ||
-              stage === 'chunking' ||
-              stage === 'summarizing' ||
-              stage === 'vectorizing' ||
-              stage === 'complete'
-            ) {
-              setPipelineStatus(stage as PipelineStep);
-            }
-
-            // Update counts from WebSocket broadcasts (live updates before HTTP response)
-            if (msg.status === 'complete' && typeof msg.count === 'number') {
-              if (stage === 'partitioning') {
-                setMetrics((prev) => ({ ...prev, elements: msg.count }));
-              } else if (stage === 'chunking') {
-                setMetrics((prev) => ({ ...prev, chunks: msg.count }));
-              }
-            }
-
-            // Capture image/table counts from COMPLETE message for summary
-            if (stage === 'complete' && msg.status === 'complete') {
-              if (typeof msg.images === 'number') {
-                setMetrics((prev) => ({ ...prev, images: msg.images }));
-              }
-              if (typeof msg.tables === 'number') {
-                setMetrics((prev) => ({ ...prev, tables: msg.tables }));
-              }
-            }
-          }
-        } catch (e) {}
-      };
-    } catch (err) {}
-    return () => {
+    const connect = () => {
       try {
-        ws?.close();
-      } catch {
-        // noop
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          retryCount = 0; // Reset retry count on successful connection
+        };
+
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+
+            if (msg?.type === 'pipeline' && typeof msg?.stage === 'string') {
+              const stage = msg.stage.toLowerCase();
+              if (
+                stage === 'uploading' ||
+                stage === 'partitioning' ||
+                stage === 'chunking' ||
+                stage === 'summarizing' ||
+                stage === 'vectorizing' ||
+                stage === 'complete'
+              ) {
+                setPipelineStatus(stage as PipelineStep);
+              }
+
+              // Update counts from WebSocket broadcasts (live updates before HTTP response)
+              if (msg.status === 'complete' && typeof msg.count === 'number') {
+                if (stage === 'partitioning') {
+                  setMetrics((prev) => ({ ...prev, elements: msg.count }));
+                } else if (stage === 'chunking') {
+                  setMetrics((prev) => ({ ...prev, chunks: msg.count }));
+                }
+              }
+
+              // Capture image/table counts from COMPLETE message for summary
+              if (stage === 'complete' && msg.status === 'complete') {
+                if (typeof msg.images === 'number') {
+                  setMetrics((prev) => ({ ...prev, images: msg.images }));
+                }
+                if (typeof msg.tables === 'number') {
+                  setMetrics((prev) => ({ ...prev, tables: msg.tables }));
+                }
+              }
+            }
+          } catch (e) {}
+        };
+
+        ws.onclose = () => {
+          if (isMounted) {
+            // Simple exponential backoff: 1s, 2s, 4s... max 10s
+            const waitTime = Math.min(1000 * Math.pow(2, retryCount), 10000);
+            retryCount++;
+            reconnectTimeout = setTimeout(connect, waitTime);
+          }
+        };
+
+        ws.onerror = () => {
+           ws?.close(); // Trigger onclose to handle reconnect
+        };
+
+      } catch (err) {
+        if (isMounted) {
+           retryCount++;
+           reconnectTimeout = setTimeout(connect, 3000);
+        }
       }
+    };
+
+    connect();
+
+    return () => {
+      isMounted = false;
+      ws?.close();
+      clearTimeout(reconnectTimeout);
     };
   }, [wsUrl]);
 
   const handleUpload = async (file: File) => {
     setUploadedFile(file.name);
-    setPipelineStatus(PIPELINE_STEPS.UPLOADING as PipelineStep);
-
     try {
-      // Upload file - WebSocket will update pipeline status in real-time
+      // Step A: Local Upload
+      setPipelineStatus(PIPELINE_STEPS.UPLOADING as PipelineStep);
+      
       const result = await uploadFile(file);
 
       // Process report data
@@ -123,14 +151,10 @@ export const useRAG = () => {
 
       // No manual status updates - WebSocket handles all pipeline stages
     } catch (error) {
-      const errorMessage =
-        error instanceof ApiError
-          ? error.message
-          : 'Failed to upload file. Ensure backend is running.';
-
-      alert(errorMessage);
-      setPipelineStatus(PIPELINE_STEPS.IDLE as PipelineStep);
-      setUploadedFile(null);
+        console.error('Upload failed:', error);
+        setPipelineStatus(PIPELINE_STEPS.IDLE);
+        onError('Upload failed. Please try again.');
+        setUploadedFile(null);
     }
   };
 
@@ -167,6 +191,7 @@ export const useRAG = () => {
               score: chunk.score,
               scores: chunk.scores,
               page: chunk.page,
+              bbox: chunk.bbox,
             }))
             .sort((a: any, b: any) => b.score - a.score);
           // Update message with chunks (content still empty)
@@ -200,6 +225,7 @@ export const useRAG = () => {
           const errorMsg = createErrorMessage(error);
           setMessages((prev) => [...prev, errorMsg]);
           setIsTyping(false);
+          onError(error as string);
         }
       );
     } catch (error) {
@@ -213,6 +239,7 @@ export const useRAG = () => {
       const errorMsg = createErrorMessage(errorMessage);
       setMessages((prev) => [...prev, errorMsg]);
       setIsTyping(false);
+      onError(errorMessage);
     }
   };
 

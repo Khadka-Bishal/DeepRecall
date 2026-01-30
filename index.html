@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <title>DeepRecall</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,8 +25,14 @@
 }
 </script>
 <link rel="stylesheet" href="/index.css">
-</head>
-  <body>
+    <style>
+      html, body {
+        background-color: #09090b; /* Match app background to prevent flash */
+        color: #d4d4d8; /* zinc-300 */
+      }
+    </style>
+  </head>
+  <body class="dark bg-[#09090b] text-zinc-300">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   <script type="module" src="/index.tsx"></script>

@@ -8,4 +8,8 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
   },
+  build: {
+    sourcemap: false, // Security: Hide source code filenames in production
+    chunkSizeWarningLimit: 1000,
+  },
 });

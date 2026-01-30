@@ -29,6 +29,13 @@ export type Chunk = {
     vector: number;
     cross_encoder?: number;
   };
+  grounding?: any;
+  bbox?: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  };
 };
 
 export type PartitionElement = {
