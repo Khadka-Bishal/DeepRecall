@@ -1,0 +1,19 @@
+# Production environment variables
+environment = "prod"
+aws_region  = "us-east-1"
+
+# Azure Document Intelligence (ADE)
+ade_api_key  = "YOUR_ADE_API_KEY_HERE"
+ade_endpoint = "https://YOUR_REGION.api.cognitive.microsoft.com/"
+
+# OpenAI API
+openai_api_key = "sk-proj-YOUR_OPENAI_API_KEY_HERE"
+
+# Pinecone Vector Database
+pinecone_api_key    = "pcsk_YOUR_PINECONE_API_KEY_HERE"
+pinecone_index_name = "deeprecall-prod"
+
+# IMPORTANT: 
+# 1. Copy this file to prod.tfvars
+# 2. Replace placeholder values with your actual API keys
+# 3. NEVER commit prod.tfvars to Git (it's in .gitignore)
