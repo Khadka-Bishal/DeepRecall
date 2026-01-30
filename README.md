@@ -68,16 +68,13 @@ Handles high-scale document processing using an event-driven serverless architec
 
 ```mermaid
 graph TD
-    PDF[PDF File] -->|Upload| S3[S3 Input] -->|Trigger| L[Lambda Processor]
-    
-    subgraph "Processing Logic"
+    subgraph Ingest ["Ingestion: PDF -> S3 -> Lambda -> DB"]
         direction LR
-        P[ADE Parser] --> C[Semantic Chunker] --> E[Embedding Model]
+        PDF[File] --> S3[S3 Input] --> L[Lambda]
+        L --> P[ADE Parser] --> C[Chunker] --> E[Embedding]
+        E --> DB[(Pinecone)]
+        E --> Out[S3 Out]
     end
-    
-    L --> P
-    E -->|Vectors| DB[(Pinecone)]
-    E -->|JSON| Out[S3 Output]
 ```
 
 ### Retrieval Pipeline (Read Path)
@@ -86,18 +83,12 @@ DeepRecall employs a "Fusion Retrieval" strategy to ensure high recall and preci
 
 ```mermaid
 graph TD
-    Q[User Query] --> ME[Multi-Query Expansion] -->|Q1, ..., Qn| P[Parallel Search]
-    
-    subgraph "Hybrid Retrieval"
+    subgraph Retrieval ["Read Path: Query -> Hybrid Search -> Rerank -> LLM"]
         direction LR
-        V["Vector Search (Dense)"]
-        K["Keyword Search (BM25)"]
-        V & K --> RRF[RRF Fusion]
+        Q[Query] --> ME[Expansion] --> P[Parallel]
+        P --> V[Vector Search] & K[BM25 Search] -->|"Top N Chunks"| RRF[Fusion]
+        RRF -->|"Top N"| CE[Rerank] -->|"Top K"| LLM[Generate] --> A[Stream]
     end
-    
-    P --> V
-    P --> K
-    RRF -->|Top 60| CE[Cross-Encoder Reranking] -->|Top 5| LLM[LLM Generation] --> A[Streamed Answer]
 ```
 
 ## Quick Start

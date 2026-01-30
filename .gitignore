@@ -79,3 +79,5 @@ backend/verify_pipeline_manual.py
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+*.md
+!README.md

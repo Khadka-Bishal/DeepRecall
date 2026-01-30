@@ -65,11 +65,13 @@ class Settings(BaseSettings):
     output_bucket_name: str = Field(default="deeprecall-output-dev", alias="DEEPRECALL_OUTPUT_BUCKET")
     use_aws_pipeline: bool = Field(default=False, alias="USE_AWS_PIPELINE")
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
-        populate_by_name = True
+    model_config = {
+        "env_file": ".env" if os.path.exists(".env") else None,
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+        "populate_by_name": True,
+        "protected_namespaces": (),
+    }
 
     @property
     def max_file_size_bytes(self) -> int:
