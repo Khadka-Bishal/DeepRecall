@@ -15,31 +15,29 @@ DeepRecall is a hybrid Retrieval-Augmented Generation (RAG) system that uses AWS
 The system is deployed across a hybrid environment, with infrastructure managed via **Terraform**.
 
 ```mermaid
-graph TD
-    subgraph "Client Side"
-        Client[React + Vite Frontend]
+graph LR
+    subgraph Client ["Client Side"]
+        UI[React Frontend]
     end
 
-    subgraph "Orchestration"
-        API[FastAPI Backend]
+    subgraph Backend ["Orchestration"]
+        API[FastAPI Server]
     end
 
-    subgraph "AWS Serverless (Managed by Terraform)"
-        S3{S3 Buckets}
-        SQS[SQS Queue]
-        Lambda[ADE Processor Lambda]
+    subgraph AWS ["AWS Serverless (Managed by Terraform)"]
+        S3[S3 Input] -->|Event| SQS[SQS Queue]
+        SQS -->|Trigger| Lambda[ADE Processor]
     end
 
-    subgraph "Knowledge Base"
-        Pinecone[(Pinecone Vector DB)]
+    subgraph KB ["Knowledge Base"]
+        Pinecone[(Pinecone DB)]
     end
 
-    Client <-->|REST / WebSocket| API
+    %% Flows
+    UI <-->|REST / WS| API
     API <-->|Query| Pinecone
     API -->|Secure Upload| S3
-    S3 -->|Event Notification| SQS
-    SQS -->|Async Trigger| Lambda
-    Lambda -->|Semantic Chunking| Pinecone
+    Lambda -->|Vectors| Pinecone
 ```
 
 ### Detailed Data Flow
