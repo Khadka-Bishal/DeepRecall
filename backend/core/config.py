@@ -66,6 +66,8 @@ class Settings(BaseSettings):
 
     # AWS Configuration
     aws_region: str = Field(default="us-east-1", alias="AWS_REGION")
+    aws_access_key_id: Optional[str] = Field(default=None, alias="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: Optional[str] = Field(default=None, alias="AWS_SECRET_ACCESS_KEY")
     input_bucket_name: str = Field(default="deeprecall-input-dev", alias="DEEPRECALL_INPUT_BUCKET")
     output_bucket_name: str = Field(default="deeprecall-output-dev", alias="DEEPRECALL_OUTPUT_BUCKET")
     use_aws_pipeline: bool = Field(default=False, alias="USE_AWS_PIPELINE")

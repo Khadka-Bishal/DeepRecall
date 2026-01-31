@@ -17,7 +17,9 @@ class S3Service:
         self.settings = get_settings()
         self.s3_client = boto3.client(
             "s3", 
-            region_name=self.settings.aws_region
+            region_name=self.settings.aws_region,
+            aws_access_key_id=getattr(self.settings, 'aws_access_key_id', None),
+            aws_secret_access_key=getattr(self.settings, 'aws_secret_access_key', None)
         )
         self.input_bucket = self.settings.input_bucket_name
         self.output_bucket = self.settings.output_bucket_name

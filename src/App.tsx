@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -17,6 +17,14 @@ const LoadingScreen = () => (
   </div>
 );
 
+const RedirectHome = () => {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate('/');
+  }, [navigate]);
+  return null;
+};
+
 const AnimatedRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -34,15 +42,15 @@ const AnimatedRoutes = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5 }}
             >
-              <LandingPage onLaunch={() => navigate('/app')} />
+              <LandingPage onLaunch={() => navigate('/console')} />
             </motion.div>
           }
         />
         <Route
-          path="/app"
+          path="/console"
           element={
             <motion.div
-              key="app"
+              key="console"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
@@ -54,6 +62,7 @@ const AnimatedRoutes = () => {
             </motion.div>
           }
         />
+        <Route path="*" element={<RedirectHome />} />
       </Routes>
     </AnimatePresence>
   );
