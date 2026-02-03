@@ -8,6 +8,11 @@ DeepRecall is a hybrid Retrieval-Augmented Generation (RAG) system that uses AWS
     -   **Retrieval (Read)**: FastAPI backend querying Pinecone directly.
 -   **Infrastructure as Code**: Fully provisioned AWS environment (IAM, S3, Lambda, SQS) using Terraform modules.
 
+## Demo
+https://github.com/user-attachments/assets/d2278987-02f0-45e6-9351-340c405093fb
+
+
+
 ## System Architecture
 
 ### High-Level Architecture
@@ -22,7 +27,7 @@ graph TD
         B <-->|Query| P["Pinecone Vector DB"]
     end
 
-    subgraph "AWS Serverless (Managed by Terraform)"
+    subgraph "AWS Serverless (Terraform)"
         direction LR
         S["S3 Buckets"] -->|"Event Notification"| SQS["SQS Queue"] -->|"Async Trigger"| L["ADE Processor Lambda"]
     end
